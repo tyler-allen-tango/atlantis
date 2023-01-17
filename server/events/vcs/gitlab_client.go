@@ -163,6 +163,30 @@ func (g *GitlabClient) CreateComment(repo models.Repo, pullNum int, comment stri
 }
 
 func (g *GitlabClient) HidePrevCommandComments(repo models.Repo, pullNum int, command string) error {
+	// GitLab doesn't support hiding comments.
+	// So we'll just delete them. This is potentially sketch for troubleshooting but it is what it is for gitlab.
+	//  Maybe we delete just the plans but keep the previous applies? Hm not sure
+	comments, _, err := g.Client.Notes.ListMergeRequestNotes(repo.FullName, pullNum, &gitlab.ListMergeRequestNotesOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	for _, comment := range comments {
+
+		if strings.Contains(comment.Author.Username, "atlantis") {
+			body := strings.Split(comment.Body, "\n")
+			if len(body) == 0 {
+				continue
+			}
+			firstLine := strings.ToLower(body[0])
+			if !strings.Contains(firstLine, strings.ToLower(command)) {
+				continue
+			}
+			g.Client.Notes.DeleteMergeRequestNote(repo.FullName, pullNum, comment.ID)
+		}
+	}
+
 	return nil
 }
 
